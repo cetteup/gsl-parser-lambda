@@ -10,8 +10,6 @@ exports.lambdaHandler = async (event) => {
         headers: { 'Content-Type': 'application/json' }
     };
 
-    console.log(event);
-
     try {
         // Make sure a channel name has been provided
         if (!event.pathParameters || !('game' in event.pathParameters) || !(event.pathParameters.game.trim() in GSL_URLS)) {
