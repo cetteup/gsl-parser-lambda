@@ -1,0 +1,17 @@
+{
+  "name": "gsl-parser-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function to parse .gsl files from gslist or ealist",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "cetteup (me@cetteup.com)",
+  "license": "ISC",
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  },
+  "devDependencies": {
+    "eslint": "^7.20.0"
+  }
+}
