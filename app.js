@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 
 const GSL_URLS = {
+    bf2142: 'https://static.bflist.io/serverlists/stella.gsl',
     bfbc2: 'https://static.bflist.io/serverlists/bfbc2-pc-server.gsl'
 };
 
@@ -36,8 +37,8 @@ exports.lambdaHandler = async (event) => {
 };
 
 async function parseGslFileContent(gslFileContent) {
-    // Split into lines
-    const lines = gslFileContent.trim().split('\n');
+    // Split into lines and filter to those containing raw data ()
+    const lines = gslFileContent.trim().split('\n').filter((line) => line.includes(' \\'));
     let servers = [];
     for (const line of lines) {
         // Line format "{ip}:{port} \{rawData}"" => split on " \" and get second element
