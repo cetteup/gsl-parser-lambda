@@ -1,8 +1,11 @@
-const fetch = require('node-fetch');
+const AWS = require('aws-sdk');
+AWS.config.update({ region: 'eu-central-1' });
 
-const GSL_URLS = {
-    bf2142: 'https://static.bflist.io/serverlists/stella.gsl',
-    bfbc2: 'https://static.bflist.io/serverlists/bfbc2-pc-server.gsl'
+const s3 = new AWS.S3();
+
+const GSL_FILENAMES = {
+    bf2142: 'stella.gsl',
+    bfbc2: 'bfbc2-pc-server.gsl'
 };
 
 exports.lambdaHandler = async (event) => {
@@ -13,14 +16,18 @@ exports.lambdaHandler = async (event) => {
 
     try {
         // Make sure a game has been provided
-        if (!event.pathParameters || !('game' in event.pathParameters) || !(event.pathParameters.game.trim() in GSL_URLS)) {
+        if (!event.pathParameters || !('game' in event.pathParameters) || !(event.pathParameters.game.trim() in GSL_FILENAMES)) {
             response.statusCode = 422;
             throw new Error('No/invalid game name provided');
         }
 
-        // Fetch gsl
-        const res = await fetch(GSL_URLS[event.pathParameters.game.trim()]);
-        const gsl = await res.text();
+        // Read gsl from S3
+        const params = {
+            Bucket: 'battlefield-serverlists',
+            Key: GSL_FILENAMES[event.pathParameters.game.trim()]
+        }
+        const data = await s3.getObject(params).promise();
+        const gsl = data.Body.toString();
         // Parse gsl
         const servers = await parseGslFileContent(gsl);
         // Use field filter if any fields have been specified

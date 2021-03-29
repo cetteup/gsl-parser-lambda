@@ -9,7 +9,7 @@
   "author": "cetteup (me@cetteup.com)",
   "license": "ISC",
   "dependencies": {
-    "node-fetch": "^2.6.1"
+    "aws-sdk": "^2.874.0"
   },
   "devDependencies": {}
 }
