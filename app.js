@@ -107,5 +107,8 @@ async function parse1942Players(server) {
         delete server[key];
     }
 
+    // Players are not always sequential (indexes can be missing) => filter null values
+    server.players = server.players.filter(elem => elem);
+
     return server;
 }
