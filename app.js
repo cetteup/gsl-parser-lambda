@@ -5,11 +5,12 @@ const s3 = new AWS.S3();
 
 const GSL_FILENAMES = {
     bf1942: 'bfield1942.gsl',
+    bfvietnam: 'bfvietnam.gsl',
     bf2142: 'stella.gsl',
     bfbc2: 'bfbc2-pc-server.gsl'
 };
 
-const BF1942_PLAYER_KEYS = ['deaths', 'keyhash', 'kills', 'ping', 'playername', 'score', 'team'];
+const GSL_PLAYER_KEYS = ['deaths', 'keyhash', 'kills', 'ping', 'playername', 'player', 'score', 'team'];
 
 exports.lambdaHandler = async (event) => {
     // Init response
@@ -30,7 +31,7 @@ exports.lambdaHandler = async (event) => {
         const params = {
             Bucket: 'static.bflist.io/serverlists',
             Key: GSL_FILENAMES[game]
-        }
+        };
         const data = await s3.getObject(params).promise();
         const gsl = data.Body.toString();
         // Parse gsl
@@ -80,12 +81,12 @@ async function parseGslFileContent(gslFileContent, game, parsePlayers = false) {
         // Build server object (and cleanup up value), then add server to list
         let server = Object.fromEntries(keys.map((key, i) => [key, unescape(values[i].replace(/"/g, '')).trim()]));
 
-        if (game == 'bf1942' && parsePlayers) {
-            server = await parse1942Players(server);
+        if ((game == 'bf1942' || game == 'bfvietnam') && parsePlayers) {
+            server = await parseGslPlayers(server);
         }
 
-        // Server details for both 2142s does not contain ip/port => add it from key
-        if (game == 'bf1942' || game == 'bf2142') {
+        // Server details for both 2142s and Vietnam does not contain ip/port => add it from key
+        if (game == 'bf1942' || game == 'bf2142' || game == 'bfvietnam') {
             const host = key.split(':');
             server = {
                 hostip: host[0].trim(),
@@ -100,8 +101,8 @@ async function parseGslFileContent(gslFileContent, game, parsePlayers = false) {
     return servers;
 }
 
-async function parse1942Players(server) {
-    const playerKeys = Object.keys(server).filter((key) => key.includes('_') && BF1942_PLAYER_KEYS.includes(key.split('_')[0]));
+async function parseGslPlayers(server) {
+    const playerKeys = Object.keys(server).filter((key) => key.includes('_') && GSL_PLAYER_KEYS.includes(key.split('_')[0]));
     server.players = [];
     for (const key of playerKeys) {
         // Player key format: "{property}_{player index}" => split on "_" and use first elem as property key, second as player index
