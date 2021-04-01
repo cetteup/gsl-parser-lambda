@@ -4,9 +4,12 @@ AWS.config.update({ region: 'eu-central-1' });
 const s3 = new AWS.S3();
 
 const GSL_FILENAMES = {
+    bf1942: 'bfield1942.gsl',
     bf2142: 'stella.gsl',
     bfbc2: 'bfbc2-pc-server.gsl'
 };
+
+const BF1942_PLAYER_KEYS = ['deaths', 'keyhash', 'kills', 'ping', 'playername', 'score', 'team'];
 
 exports.lambdaHandler = async (event) => {
     // Init response
@@ -21,14 +24,18 @@ exports.lambdaHandler = async (event) => {
             throw new Error('No/invalid game name provided');
         }
 
+        const game = event.pathParameters.game.trim();
+
         // Read gsl from S3
         const params = {
             Bucket: 'static.bflist.io/serverlists',
+            Key: GSL_FILENAMES[game]
         }
         const data = await s3.getObject(params).promise();
         const gsl = data.Body.toString();
         // Parse gsl
-        const servers = await parseGslFileContent(gsl);
+        const servers = await parseGslFileContent(gsl, game, !!event?.queryStringParameters?.parsePlayers);
+
         // Use field filter if any fields have been specified
         const fields = event?.queryStringParameters?.fields ? event.queryStringParameters.fields.split(',') : null;
         response.body = JSON.stringify(servers, fields);
@@ -42,22 +49,63 @@ exports.lambdaHandler = async (event) => {
     return response;
 };
 
-async function parseGslFileContent(gslFileContent) {
+async function parseGslFileContent(gslFileContent, game, parsePlayers = false) {
     // Split into lines and filter to those containing raw data ()
     const lines = gslFileContent.trim().split('\n').filter((line) => line.includes(' \\'));
-    let servers = [];
+
+    // Group GSL entries by key
+    let unparsedServers = {};
     for (const line of lines) {
-        // Line format "{ip}:{port} \{rawData}"" => split on " \" and get second element
-        const rawData = line.split(' \\')[1];
+        // Line format "{ip}:{port} \{rawData}"" => split on " \"
+        const rawData = line.split(' \\');
+        // Check if there already is an unparsed server at key "{ip}:{port}"
+        if (rawData.length > 1 && rawData[0] in unparsedServers) {
+            // Server entry exists => append info
+            unparsedServers[rawData[0]] += `\\${rawData[1]}`;
+        }
+        else if (rawData.length > 1) {
+            // No server found, init new one at key
+            unparsedServers[rawData[0]] = rawData[1];
+        }
+    }
+
+    let servers = [];
+    for (const key in unparsedServers) {
         // Data elements are separated by backslashes
-        const elements = rawData.split('\\');
+        const elements = unparsedServers[key].split('\\');
         // Data format is "key\value\key\value[...]" => use even index elements as keys, uneven elements as values
         const keys = elements.filter((elem, i) => i % 2 == 0);
         const values = elements.filter((elem, i) => i % 2 == 1);
 
         // Build server object (and cleanup up value), then add server to list
-        servers.push(Object.fromEntries(keys.map((key, i) => [key, unescape(values[i].replace(/"/g, '')).trim()])));
+        let server = Object.fromEntries(keys.map((key, i) => [key, unescape(values[i].replace(/"/g, '')).trim()]));
+
+        if (game == 'bf1942' && parsePlayers) {
+            server = await parse1942Players(server);
+        }
+
+        servers.push(server);
     }
 
     return servers;
+}
+
+async function parse1942Players(server) {
+    const playerKeys = Object.keys(server).filter((key) => key.includes('_') && BF1942_PLAYER_KEYS.includes(key.split('_')[0]));
+    server.players = [];
+    for (const key of playerKeys) {
+        // Player key format: "{property}_{player index}" => split on "_" and use first elem as property key, second as player index
+        const keyElements = key.split('_');
+        const index = keyElements[1];
+        const property = keyElements[0];
+        // Init player object if there is none yet at the current index
+        if (!(index in server.players)) {
+            server.players[index] = {};
+        }
+        // Add property to player
+        server.players[index][property] = server[key];
+        delete server[key];
+    }
+
+    return server;
 }
