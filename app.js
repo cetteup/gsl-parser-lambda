@@ -23,8 +23,7 @@ exports.lambdaHandler = async (event) => {
 
         // Read gsl from S3
         const params = {
-            Bucket: 'battlefield-serverlists',
-            Key: GSL_FILENAMES[event.pathParameters.game.trim()]
+            Bucket: 'static.bflist.io/serverlists',
         }
         const data = await s3.getObject(params).promise();
         const gsl = data.Body.toString();
