@@ -84,6 +84,16 @@ async function parseGslFileContent(gslFileContent, game, parsePlayers = false) {
             server = await parse1942Players(server);
         }
 
+        // Server details for both 2142s does not contain ip/port => add it from key
+        if (game == 'bf1942' || game == 'bf2142') {
+            const host = key.split(':');
+            server = {
+                hostip: host[0].trim(),
+                queryport: host[1].trim(),
+                ...server
+            };
+        }
+
         servers.push(server);
     }
 
